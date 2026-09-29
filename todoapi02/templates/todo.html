@@ -1,0 +1,50 @@
+{% extends "home.html" %}
+{% block todo_container %}
+<main class="container">
+    <hr>
+    <section class="container-fluid">
+        <form method="post" action="/todo">
+            <div class="input-group mb-3">
+                <input aria-describedby="button-addon2" aria-label="Add a todo"
+                      class="form-control" name="item"
+                      placeholder="Input Item" type="text" value="{{ item }}"/>
+                <button class="btn btn-outline-primary" data-mdb-ripple-color="dark" id="button-addon2"
+                 type="submit">Add Todo</button>      
+            </div>
+        </form>
+    </section>
+    {% if todo %}
+    <article class="card container-fluid"><br />
+        <h4>Todo ID : {{ todo.id }}</h4>
+        <p><strong>
+            Item : {{ todo.item }}
+        </strong></p>
+    </article>
+    {% else %}
+    <section class="container-fluid">
+        <h2 align="center">Todos</h2><br>
+        <div class="card">
+            <ul class="list-group list-group-flush">
+                {% for todo in todos %}
+                <li class="list-group-item">
+                    <div class="d-flex align-items-center">
+                    <span class="mr-2">{{ todo.id }}.</span>
+                    <form action="/todo/{{ todo.id }}/edit" class="d-flex flex-grow-1" method="post">
+                        <input aria-label="Todo item" class="form-control mr-2" name="item" required type="text"
+                        value="{{ todo.item }}">
+                        <a class="btn btn-outline-primary" href="/todo/{{ todo.id }}">View</a>
+                        &ensp;
+                        <button class="btn btn-outline-secondary" type="submit">Save</button>
+                    </form>
+                    <form action="todo/{{ todo.id }}/delete" class="ml-2" method="post">
+                        <button class="btn btn-outline-danger" type="submit">Delete</button>
+                    </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+</main>
+{% endblock%}
