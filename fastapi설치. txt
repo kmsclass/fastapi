@@ -1,28 +1,22 @@
 1. brew install uv 명령어로 uv설치가능 => brew 명령어가 없는경우 아래 명령어로 실행함
 2. curl -LsSf https://astral.sh/uv/install.sh | sh => 공식 사이트에서 직접 uv다운받아 설치
+   [window] irm https://astral.sh/uv/install.ps1 | iex
+
 3. 설치 확인 : 설치 후에 터미널을 새로 실행.  PATH설정때문에 터미널 다시 로드 필요
 4. vscode도 재 실행 하기
 5. vscode의 터미널 에서 
    uv init --no-package fastapi01 => fastapi01 프로젝트 생성
-
+   
 
 6. cd /Users/apple/fastapi/fastapi01. => 프로젝트 폴더로 이동 pwd 명령어로 확인
 7. uv add fastapi =>  프로젝트내에 .venv라는 가상환경이 새로 생성됨. 
    
 8. .venv 가상환경을 활성화하기
-   1. brew install uv 명령어로 uv설치가능 => brew 명령어가 없는경우 아래 명령어로 실행함
-2. curl -LsSf https://astral.sh/uv/install.sh | sh => 공식 사이트에서 직접 uv다운받아 설치
-3. 설치 확인 : 설치 후에 터미널을 새로 실행.  PATH설정때문에 터미널 다시 로드 필요
-4. vscode도 재 실행 하기
-5. vscode의 터미널 에서 
-   uv init --no-package fastapi01 => fastapi01 프로젝트 생성
+   [mac]source .venv/bin/activate
+   [window] cd 프로젝트폴더\.venv\Script\
+            activate.bat 
+    => 프롬프트 (프로젝트명)... 표시. => 가상환경 활성화
 
-
-6. cd /Users/apple/fastapi/fastapi01. => 프로젝트 폴더로 이동 pwd 명령어로 확인
-7. uv add fastapi =>  프로젝트내에 .venv라는 가상환경이 새로 생성됨. 
-   venv 가상환경을 deactivated =>  venv가상환경을 비활성화.
-8. .venv 가상환경을 활성화하기
-   source .venv/bin/activate
 9. fastapi 모듈이 설치 여부 조회
     uv pip show fastapi
 10. 설치된 모듈의 의존성 트리 조회
