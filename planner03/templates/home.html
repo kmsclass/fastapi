@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planner | Todos and Events</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --planner-ink: #183943;
+            --planner-accent: #087f8c;
+            --planner-paper: #f2f6f5;
+            --planner-line: #d9e4e2;
+            --planner-warm: #d49a54;
+        }
+
+        body {
+            min-height: 100vh;
+            color: var(--planner-ink);
+            background-color: var(--planner-paper);
+            background-image: linear-gradient(rgba(24, 57, 67, .025) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(24, 57, 67, .025) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        .site-header {
+            color: #fff;
+            background: var(--planner-ink);
+            border-bottom: 4px solid var(--planner-warm);
+        }
+
+        .site-nav {
+            max-width: 1120px;
+            min-height: 76px;
+            margin: 0 auto;
+            gap: 1rem;
+        }
+
+        .site-nav .navbar-brand {
+            color: #fff;
+            font-size: 1.35rem;
+            font-weight: 700;
+        }
+
+        .site-nav-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .35rem;
+        }
+
+        .site-nav-links a {
+            padding: .45rem .7rem;
+            color: #e1ece9;
+            border-radius: 4px;
+        }
+
+        .site-nav-links a:hover,
+        .site-nav-links a:focus {
+            color: #fff;
+            background: rgba(255, 255, 255, .12);
+            text-decoration: none;
+        }
+
+        .page-shell {
+            max-width: 1120px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        .page-heading {
+            margin-bottom: 1.25rem;
+        }
+
+        .page-heading h2 {
+            margin-bottom: .25rem;
+            font-weight: 700;
+        }
+
+        .card {
+            border: 1px solid var(--planner-line);
+            border-radius: 6px;
+            box-shadow: 0 5px 16px rgba(24, 57, 67, .045);
+        }
+
+        .btn-outline-primary {
+            color: var(--planner-accent);
+            border-color: var(--planner-accent);
+        }
+
+        .btn-outline-primary:hover,
+        .btn-outline-primary:focus {
+            color: #fff;
+            background-color: var(--planner-accent);
+            border-color: var(--planner-accent);
+        }
+
+        .form-control:focus {
+            border-color: var(--planner-accent);
+            box-shadow: 0 0 0 .2rem rgba(8, 127, 140, .16);
+        }
+
+        @media (max-width: 575.98px) {
+            .site-nav {
+                padding-top: .8rem;
+                padding-bottom: .8rem;
+            }
+
+            .page-shell {
+                padding-top: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <nav class="navbar navbar-expand">
+            <div class="container-fluid site-nav">
+                <a class="navbar-brand" href="/todo">Planner</a>
+                <div class="site-nav-links" aria-label="Main navigation">
+                    <a href="/todo">Todos</a>
+                    <a href="/event/page">Events</a>
+                    <a href="/user/page">Accounts</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <main class="container-fluid page-shell">
+        {% block todo_container %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -9,7 +9,9 @@
                       class="form-control" name="item"
                       placeholder="Input Item" type="text" value="{{ item }}"/>
                 <button class="btn btn-outline-primary" data-mdb-ripple-color="dark" id="button-addon2"
-                 type="submit">Add Todo</button>      
+                 type="submit">Add Todo</button> 
+                 {# type="submit" : submit 버튼을 클릭하면, submit버튼의 form 태그에 속한 forme데이터 (input, select) 값들을 
+                    요청정보에 실어서 action 속성에 등록된 url로 요청을 해주는 기능 #}     
             </div>
         </form>
     </section>
@@ -32,7 +34,7 @@
                     <form action="/todo/{{ todo.id }}/edit" class="d-flex flex-grow-1" method="post">
                         <input aria-label="Todo item" class="form-control mr-2" name="item" required type="text"
                         value="{{ todo.item }}">
-                        <a class="btn btn-outline-primary" href="/todo/{{ todo.id }}">View</a>
+                        <a class="btn btn-outline-primary" href="/todo/{{ todo.id }}">View</a> {# a 태그의 요청방식은 Get 방식임 #}
                         &ensp;
                         <button class="btn btn-outline-secondary" type="submit">Save</button>
                     </form>
