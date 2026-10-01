@@ -58,7 +58,7 @@
                     <p class="mb-2"><strong>Location:</strong> {{ event.location }}</p>
                     {% if event.tags %}
                     <p class="mb-0">
-                        {% for tag in event.tags %}
+                        {% for tag in event.tags %} {# event.tags : 자료형 리스트형임. #}
                         <span class="badge badge-light border mr-1">{{ tag }}</span>
                         {% endfor %}
                     </p>
