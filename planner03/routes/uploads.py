@@ -37,13 +37,15 @@ def safe_filename(filename: str | None) -> str:
 
 # 업로드된 파일 저장
 async def save_upload(file: UploadFile) -> str:
-    folder = UPLOAD_DIR / uuid4().hex
-    folder.mkdir(parents=True)
-    path = folder / safe_filename(file.filename)
+    # uuid4(): UUID 객체. 128비트로 식별번호. 32자리 하이픈으로 연결 제공. 임의의 문자열 
+    # hex : - 없이 16진수로 32자리
+    folder = UPLOAD_DIR / uuid4().hex  # 프로젝트폴더/uploads/16진수32자리문자열
+    folder.mkdir(parents=True)  #폴더 생성. 상위폴더가 없으면 상위폴더도 생성
+    path = folder / safe_filename(file.filename)  #폴더 / 파일이름.  실제 업로드되는 파일폴더와이름
     size = 0
     try:
-        with path.open("wb") as out:
-            while chunk := await file.read(CHUNK_SIZE):
+        with path.open("wb") as out:  # path에 파일 생성.
+            while chunk := await file.read(CHUNK_SIZE):  #파일을 읽기. 읽은 내용이 존재 True, eof인 경우는 False
                 size += len(chunk)
                 if size > MAX_FILE_SIZE:
                     raise HTTPException(
@@ -52,13 +54,16 @@ async def save_upload(file: UploadFile) -> str:
                     )
                 out.write(chunk)
     except BaseException:
-        shutil.rmtree(folder, ignore_errors=True)
-        raise
+        shutil.rmtree(folder, ignore_errors=True) # 파일 저장 중에 오류 발생시 업로드된 파일을 삭제
+        raise  #예외 강제 발생. 
+    # 절대 경로 path에서  PROJECT_DIR을 기준으로 상대경로로 변경.
+    # as_posix() : 윈도우인 경우도 /로 폴더 구분
     return path.relative_to(PROJECT_DIR).as_posix()
 
+# 첨부파일과 무작위폴더를 삭제
 def delete_upload(attachment_path: str | None) -> None:
-    if not attachment_path:
+    if not attachment_path:  #첨부파일이 없으면 리턴
         return
     path = (PROJECT_DIR / attachment_path).resolve()
-    if path.parent.parent == UPLOAD_DIR:
+    if path.parent.parent == UPLOAD_DIR:  #업로드 폴더인 경우만 폴더 삭제
         shutil.rmtree(path.parent, ignore_errors=True)

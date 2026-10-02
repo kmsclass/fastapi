@@ -2,14 +2,14 @@
 # UploadFile : 업로드된 파일의 내용을 저장하고 있는 객체(파일이름, 종류, 내용)
 # File : multipart/form-data 에서 파일 필수, 선택
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status,Query,UploadFile,File
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse,FileResponse
 from sqlmodel import Session, select, func
 from database.connection import get_session
 from routes.template_engine import templates 
 from models.boards import Board, BoardCategory
 from auth.authenticate import LoginRequiredException, get_current_user, is_admin
 import math
-from routes.uploads import save_upload, delete_upload,has_file
+from routes.uploads import save_upload, delete_upload,has_file,absolute_path
 
 board_router = APIRouter(tags=["Boards"])
 
@@ -106,6 +106,31 @@ def validate(title: str, content: str) -> str | None:
         return "Enter the content."
     return None
 
+#post_id 값의 게시글을 db에서 읽어서 Board 객체로 리턴
+def get_post(session: Session, category: BoardCategory, post_id: int) -> Board:
+    post = session.get(Board, post_id) #key값에 해당하는 데이터 조회
+    if post is None or post.category != category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    return post
+
+#글 수정 권한 
+def can_edit(email: str | None, post: Board) -> bool:
+    if not can_write(email, post.category):  #글쓰기 권한이 있는 경우는 수정이 가능함
+        return False
+    #글수정 본인글만 수정 가능. 관리자인 경우는 다른 게시글도 수정
+    return post.author_email == email or is_admin(email)
+
+def get_editable_post(
+    request: Request, session: Session, category: BoardCategory, post_id: int) -> tuple[Board, str]:
+    email = check_can_write(request, category)
+    post = get_post(session, category, post_id)
+    if not can_edit(email, post):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the author can change this post",
+        )
+    return post, email
+
 #============================================================================
 @board_router.get("/{category}")
 async def list_posts(
@@ -149,6 +174,11 @@ async def list_posts(
             "notice_type": message_type,  #결과 출력의 글자색
         },
     )
+# first_number : 화면에 보여지는 게시물의 번호.  
+# 1페이지 : 15
+# 2페이지 : 5
+# total : 게시판종류별 전체 등록 게시물 건수. 15건
+
 # 글쓰기 화면 출력
 @board_router.get("/{category}/new")
 async def new_post_page(request: Request, category: BoardCategory):
@@ -165,15 +195,20 @@ async def create_post(
     file: UploadFile | None = File(None),  #첨부파일은 없어도 가능함
     session: Session = Depends(get_session),  #db에 데이터 등록을 위한 세션
 ):
+    # 권한 검증
     email = check_can_write(request, category)
     title, content = title.strip(), content.strip()
-    if error := validate(title, content):
+    
+    # 입력데이터 검증
+    if error := validate(title, content):  #True인 경우 입력 오류 발생
         return render_form(request, category, title=title, content=content, error=error)
 
     attachment_path = None
-    if category is BoardCategory.FREE and has_file(file):
-        attachment_path = await save_upload(file)
+    #자유게시판에서만 첨부파일을 업로드함
+    if category is BoardCategory.FREE and has_file(file):  #자유게시판이고 첨부파일이 존재. 
+        attachment_path = await save_upload(file)  #파일 업로드 실행
 
+    #db에 데이터 저장하기
     post = Board(
         category=category,
         author_email=email,
@@ -181,13 +216,130 @@ async def create_post(
         content=content,
         attachment_path=attachment_path,
     )
+    session.add(post)  #db의 board 테이블에 데이터 저장
+    try:
+        session.commit()
+    except Exception:
+        delete_upload(attachment_path)  #오류 발생시 첨부파일 제거
+        raise
+    session.refresh(post)
+    return RedirectResponse(
+        url=f"/board/{category.value}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+# 글 보기 (조회수 1 증가)
+@board_router.get("/{category}/{post_id}")
+async def read_post(
+    request: Request,
+    category: BoardCategory,
+    post_id: int,
+    session: Session = Depends(get_session),
+):
+    email = check_can_read(request, category)  #권한 검증
+    post = get_post(session, category, post_id)  #post_id : 게시글번호. 키값
+    post.views += 1   #조회수 1 증가
+    session.add(post) #Board 수정. 
+    session.commit()
+    session.refresh(post) #재 로드. 조회수가 1이 증가상태로 
+    return templates.TemplateResponse(
+        request=request,
+        name="boards/detail.html",
+        context={
+            "category": category,
+            "post": post,
+            "attachment_name": post.attachment_path.rsplit("/", 1)[-1] if post.attachment_path else None,
+            "can_edit": can_edit(email, post),
+        },
+    )
+
+# 글 수정 페이지
+@board_router.get("/{category}/{post_id}/edit")
+async def edit_post_page(
+    request: Request,
+    category: BoardCategory,
+    post_id: int,
+    session: Session = Depends(get_session),
+):
+    post, _ = get_editable_post(request, session, category, post_id)
+    return render_form(request, category, post=post, title=post.title, content=post.content)
+
+
+# 글 수정 (폼 제출)
+@board_router.post("/{category}/{post_id}/edit")
+async def edit_post(
+    request: Request,
+    category: BoardCategory,
+    post_id: int,
+    title: str = Form(""),
+    content: str = Form(""),
+    remove_file: bool = Form(False),
+    file: UploadFile | None = File(None),
+    session: Session = Depends(get_session),
+):
+    post, _ = get_editable_post(request, session, category, post_id)
+    title, content = title.strip(), content.strip()
+    if error := validate(title, content):
+        return render_form(request, category, post=post, title=title, content=content, error=error)
+
+    old_path = post.attachment_path
+    new_path = old_path
+    if category is BoardCategory.FREE:
+        if has_file(file):
+            new_path = await save_upload(file)
+        elif remove_file:
+            new_path = None
+
+    post.title = title
+    post.content = content
+    post.attachment_path = new_path
     session.add(post)
     try:
         session.commit()
     except Exception:
-        delete_upload(attachment_path)
+        if new_path != old_path:
+            delete_upload(new_path)
         raise
-    session.refresh(post)
+    if old_path != new_path:
+        delete_upload(old_path)
     return RedirectResponse(
         url=f"/board/{category.value}/{post.id}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+# 글 삭제 (폼 제출)
+@board_router.post("/{category}/{post_id}/delete")
+async def delete_post(
+    request: Request,
+    category: BoardCategory,
+    post_id: int,
+    session: Session = Depends(get_session),
+):
+    post, _ = get_editable_post(request, session, category, post_id)
+    attachment_path = post.attachment_path
+    session.delete(post)
+    session.commit()
+    delete_upload(attachment_path)
+    return RedirectResponse(
+        url=f"/board/{category.value}?notice=deleted", status_code=status.HTTP_303_SEE_OTHER
+    )
+# 첨부 파일 다운로드
+@board_router.get("/{category}/{post_id}/download")
+async def download_attachment(
+    request: Request,
+    category: BoardCategory,
+    post_id: int,
+    session: Session = Depends(get_session),
+):
+    check_can_read(request, category)
+    post = get_post(session, category, post_id)
+    if not post.attachment_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This post has no attachment")
+    path = absolute_path(post.attachment_path)
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File is missing on the server")
+    return FileResponse(
+        path,
+        media_type="application/octet-stream",
+        filename=path.name,
+        headers={"X-Content-Type-Options": "nosniff"},
     )
