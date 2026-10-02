@@ -18,7 +18,11 @@
                 <a href="/board/{{ category.value }}/{{ post.id }}/download">{{ attachment_name }}</a>
             </p>
             {% endif %}
-
+            {#
+                 자바스크립트의 대화창 3개
+                 alert() : 확인창
+                 confirm() : 취소(false), 확인(true) 
+            #}
             {% if can_edit %}
             <div class="d-flex">
                 <a class="btn btn-outline-primary mr-2" href="/board/{{ category.value }}/{{ post.id }}/edit">Edit</a>

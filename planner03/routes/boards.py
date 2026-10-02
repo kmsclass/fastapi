@@ -120,6 +120,7 @@ def can_edit(email: str | None, post: Board) -> bool:
     #글수정 본인글만 수정 가능. 관리자인 경우는 다른 게시글도 수정
     return post.author_email == email or is_admin(email)
 
+#tuple[Board, str] : 튜플의 요소가 2개야. 첫번째 자료형 Board, 두번째 자료형 :  str
 def get_editable_post(
     request: Request, session: Session, category: BoardCategory, post_id: int) -> tuple[Board, str]:
     email = check_can_write(request, category)
@@ -260,11 +261,14 @@ async def edit_post_page(
     post_id: int,
     session: Session = Depends(get_session),
 ):
+    # post_id 의 게시글을 현재 사용자가 수정 가능한 권한이 있는지 검증 
+    # 권한이 있는경우 : 게시글,이메일 정보 리턴
     post, _ = get_editable_post(request, session, category, post_id)
+    # form.html 에 게시글정보 전달.
     return render_form(request, category, post=post, title=post.title, content=post.content)
 
-
 # 글 수정 (폼 제출)
+# multipart/form-data
 @board_router.post("/{category}/{post_id}/edit")
 async def edit_post(
     request: Request,
@@ -273,18 +277,21 @@ async def edit_post(
     title: str = Form(""),
     content: str = Form(""),
     remove_file: bool = Form(False),
-    file: UploadFile | None = File(None),
+    file: UploadFile | None = File(None),  #업로드 파일의 내용
     session: Session = Depends(get_session),
 ):
-    post, _ = get_editable_post(request, session, category, post_id)
+    #수정 권한 검증 + 수정할 게시글데이터
+    #post, _ = get_editable_post(request, session, category, post_id)
+    post = get_editable_post(request, session, category, post_id)
+    post = post[0]
     title, content = title.strip(), content.strip()
     if error := validate(title, content):
         return render_form(request, category, post=post, title=title, content=content, error=error)
 
-    old_path = post.attachment_path
-    new_path = old_path
-    if category is BoardCategory.FREE:
-        if has_file(file):
+    old_path = post.attachment_path  #db에 저장된 첨부파일
+    new_path = old_path  #기존 첨부파일 내용
+    if category is BoardCategory.FREE:  #자유게시판만 첨부가능
+        if has_file(file):  #업로드된 파일이 있어?
             new_path = await save_upload(file)
         elif remove_file:
             new_path = None
@@ -292,19 +299,18 @@ async def edit_post(
     post.title = title
     post.content = content
     post.attachment_path = new_path
-    session.add(post)
+    session.add(post)  #수정
     try:
         session.commit()
     except Exception:
         if new_path != old_path:
-            delete_upload(new_path)
+            delete_upload(new_path)  #수정된 첨부파일을 제거
         raise
     if old_path != new_path:
-        delete_upload(old_path)
+        delete_upload(old_path)  #기존 첨부파일을 제거
     return RedirectResponse(
         url=f"/board/{category.value}/{post.id}", status_code=status.HTTP_303_SEE_OTHER
     )
-
 
 # 글 삭제 (폼 제출)
 @board_router.post("/{category}/{post_id}/delete")
@@ -314,11 +320,12 @@ async def delete_post(
     post_id: int,
     session: Session = Depends(get_session),
 ):
+    #권한 검증 + 삭제할 게시물데이터
     post, _ = get_editable_post(request, session, category, post_id)
-    attachment_path = post.attachment_path
-    session.delete(post)
+    attachment_path = post.attachment_path  #첨부파일 정보
+    session.delete(post)  #db의 데이터 제거
     session.commit()
-    delete_upload(attachment_path)
+    delete_upload(attachment_path) #첨부파일 제거
     return RedirectResponse(
         url=f"/board/{category.value}?notice=deleted", status_code=status.HTTP_303_SEE_OTHER
     )
@@ -330,16 +337,22 @@ async def download_attachment(
     post_id: int,
     session: Session = Depends(get_session),
 ):
-    check_can_read(request, category)
-    post = get_post(session, category, post_id)
-    if not post.attachment_path:
+    check_can_read(request, category)  # 읽기권한
+    post = get_post(session, category, post_id) #db에서 게시물 조회
+    #파일의 정보 검증.
+    if not post.attachment_path:  #해당 게시물에 첨부파일 정보 없는 경우
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This post has no attachment")
     path = absolute_path(post.attachment_path)
-    if not path.is_file():
+    if not path.is_file(): #파일 아님
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File is missing on the server")
-    return FileResponse(
+
+    # 브라우저에 전달된 파일의 형식을 application/octet-stream 전달함
+    #  text/html 전달하는 경우 : 브라우저 화면에 바로 출력
+    #  image/jpec 전달하는 경우 : 브라우저에 이미지를 출력
+    #....
+    return FileResponse(  #파일 객체를 응답
         path,
-        media_type="application/octet-stream",
+        media_type="application/octet-stream",   #다운로드 
         filename=path.name,
         headers={"X-Content-Type-Options": "nosniff"},
     )
