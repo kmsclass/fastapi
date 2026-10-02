@@ -2,6 +2,7 @@
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from sqlmodel import Field, SQLModel
+from pydantic import NaiveDatetime
 
 #다중 상속 : str 클래스와  Enum 클래스 상속받은 클래스
 class BoardCategory(str, Enum) :
@@ -36,7 +37,8 @@ class Board(SQLModel, table=True) :
     # 첨부 파일의 위치. 첨부파일이 없는 경우 None 
     attachment_path : str | None = None
     #등록일 한국의 기준 시간으로 설정
-    create_at : datetime = Field(default_factory=kst_now)
+    #create_at : datetime = Field(default_factory=kst_now)
+    create_at : NaiveDatetime = Field(default_factory=kst_now)
     # 조회 수. 기본값 0
     views : int = Field(default=0)
     

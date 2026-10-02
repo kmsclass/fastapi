@@ -1,15 +1,21 @@
 {% extends "home.html" %}
 {% block todo_container %}
-{# 게시판 : 자유게시판(Board), 공지사항(Notice) #}
+{# 게시판 : 자유게시판(Board), 공지사항(Notice)
+    1. 로그아웃상태 : 공지사항 조회, 게시판 불가
+    2. 일반사용자 로그인 : 공지사항 조회, 게시판 가능(읽기,쓰기)
+    3. 관리자 로그인(admin@aaa.bbb) : 공지사항(읽기,쓰기),  게시판 가능(읽기,쓰기)
+    #}
 <main class="container">
     <header class="page-heading d-flex align-items-end justify-content-between">
         <div>
+            {# category.label : label함수 호출. @property 기능으로 속성처럼 호출 #}
             <h2>{{ category.label }}</h2>
             <p class="text-muted mb-0">
                 {% if category.value == "notice" %}Announcements from the administrator.
                 {% else %}Share anything with everyone. A file can be attached.{% endif %}
             </p>
         </div>
+        {# can_write 값이 True인 경우 #}
         {% if can_write %}
         <a class="btn btn-outline-primary" href="/board/{{ category.value }}/new">Write</a>
         {% endif %}
@@ -20,7 +26,7 @@
     {% endif %}
 
     <section class="card">
-        {% if posts %}
+        {% if posts %}  {# 등록된 게시물이 존재 하는 경우 #}
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -35,13 +41,15 @@
                 <tbody>
                 {% for post in posts %}
                 <tr>
+                    {# loop.index0 : 반복문에서 반복되는 인덱스 값 0부터 시작 #}
                     <td>{{ first_number - loop.index0 }}</td>
                     <td>
                         <a href="/board/{{ category.value }}/{{ post.id }}">{{ post.title }}</a>
                         {% if post.attachment_path %}<span title="Has attachment">📎</span>{% endif %}
                     </td>
                     <td>{{ post.author_email }}</td>
-                    <td class="text-nowrap">{{ post.created_at | localtime }}</td>
+                {#    <td class="text-nowrap">{{ post.create_at | localtime }}</td> #}
+                    <td class="text-nowrap">{{ post.create_at }}</td>
                     <td class="text-right">{{ post.views }}</td>
                 </tr>
                 {% endfor %}
@@ -55,7 +63,7 @@
 
     {# 페이징 처리 방법 #}
     {% set p = pagination %}
-    {% set base = "/board/" ~ category.value ~ "?page=" %}
+    {% set base = "/board/" ~ category.value ~ "?page=" %} {#  /board/free?page= #}
     {% if p.total_pages > 1 %}
     <nav class="mt-3" aria-label="Pages">
         <ul class="pagination justify-content-center mb-1">

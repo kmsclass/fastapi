@@ -1,0 +1,66 @@
+{% extends "home.html" %}
+{#
+    boards/form.html : 글쓰기 / 글 수정 (공지사항 / 자유게시판 공용)
+
+    서버(routes/boards.py 의 render_form)가 넘겨주는 값
+      category   : 게시판 구분
+      post       : 수정할 글 (새 글이면 None)
+      title, content : 입력칸에 채울 값 (수정할 때, 또는 검사 실패로 다시 그릴 때)
+      error      : 입력값 검사 오류 문구 (없으면 None)
+      allow_file : 파일 첨부 칸을 보여 줄지 (자유게시판만)
+#}
+
+{% block todo_container %}
+<main class="container">
+    <header class="page-heading">
+        <h2>{{ "Edit post" if post else "New post" }} <small class="text-muted">· {{ category.label }}</small></h2>
+        <a href="{{ '/board/%s/%s' % (category.value, post.id) if post else '/board/' ~ category.value }}">&larr; Cancel</a>
+    </header>
+
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    {#
+        enctype="multipart/form-data" : 파일을 보내려면 반드시 필요하다. 선택된 파일의 내용도 서버로 전송. method="post"로 설정해야함
+          기본값(application/x-www-form-urlencoded)은 글자만 보낼 수 있어서 파일 이름만 전송된다.
+        action : 새 글이면 /board/{category}/new, 수정이면 /board/{category}/{id}/edit
+    #}
+    <form class="card card-body" method="post" enctype="multipart/form-data"
+          action="{{ '/board/%s/%s/edit' % (category.value, post.id) if post else '/board/%s/new' % category.value }}">
+        <div class="form-group">
+            <label for="post-title">Title</label>
+            <input class="form-control" id="post-title" name="title" required maxlength="200" value="{{ title }}">
+        </div>
+        <div class="form-group">
+            <label for="post-content">Content</label>
+            <textarea class="form-control" id="post-content" name="content" rows="8" required>{{ content }}</textarea>
+        </div>
+
+        {% if allow_file %}
+        {% if post and post.attachment_path %}
+        <div class="form-group">
+            <p class="mb-1">Current file: <strong>{{ post.attachment_path.rsplit('/', 1)[-1] }}</strong></p>
+            <div class="form-check">
+                {# 체크하면 remove_file=on 이 전송되어 서버의 remove_file: bool 이 True 가 된다. #}
+                <input class="form-check-input" id="remove-file" name="remove_file" type="checkbox">
+                <label class="form-check-label" for="remove-file">Remove this file</label>
+            </div>
+        </div>
+        {% endif %}
+        <div class="form-group">
+            <label for="post-file">
+                {{ "Replace file" if post and post.attachment_path else "Attachment" }}
+                <span class="text-muted">(optional, up to 10MB)</span>
+            </label>
+            {# name="file" : 서버의 file: UploadFile 매개변수와 이름이 같아야 한다. #}
+            <input class="form-control-file" id="post-file" name="file" type="file">
+        </div>
+        {% endif %}
+
+        <div>
+            <button class="btn btn-outline-primary" type="submit">{{ "Save" if post else "Post" }}</button>
+        </div>
+    </form>
+</main>
+{% endblock %}

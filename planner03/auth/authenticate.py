@@ -1,7 +1,15 @@
 #auth/authenticate.py
 from fastapi import  Request,HTTPException,status
+import os
 
 SESSION_USER_KEY = "user"  #로그인 정보 인식하는 키값
+#os.getenv : 환경변수에서 ADMIN_EMAIL 정보 리턴.
+# 환경변수에 등록되지 않은 경우 기본값으로 admin@aaa.bbb이 관리자 이메일임
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@aaa.bbb")
+
+# 이메일 정보가 관리자 여부를 bool타입으로 리턴
+def is_admin(email: str | None) -> bool:
+    return email == ADMIN_EMAIL
 
 #LoginRequiredException : HTTPException  클래스의 하위 클래스.
 class LoginRequiredException(HTTPException) :
@@ -41,3 +49,4 @@ def login_required_handler(request:Request, exc : LoginRequiredException) :
     return JSONResponse (status_code=exc.status_code,  # /docs 등에서 호출된 경우
                          content={"detail":exc.detail}
                          )
+
