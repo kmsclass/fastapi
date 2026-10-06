@@ -1,0 +1,732 @@
+<!doctype html>
+
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>데이터 모델링 | MLOps</title>
+  <!-- 웹 글꼴: DM Mono(숫자·코드), IBM Plex Sans KR(본문). 미리 연결해 로딩을 앞당긴다. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== 디자인 토큰: 색상·글꼴을 변수로 모아 두고 아래에서 var(--이름)으로 사용 ===== */
+    :root {
+      color-scheme: light;
+      --ink: #172a26;
+      --muted: #697974;
+      --line: #dce5df;
+      --paper: #f3f7f3;
+      --surface: #ffffff;
+      --green: #176b55;
+      --green-soft: #e5f2eb;
+      --orange: #c76536;
+      --orange-soft: #fbede5;
+      --red: #b8473d;
+      --mono: "DM Mono", Consolas, monospace;
+      --sans: "IBM Plex Sans KR", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    }
+    /* 크기 계산에 테두리·여백 포함 */
+    * { box-sizing: border-box; }
+    /* hidden 속성이 .field { display: block } 같은 규칙에 덮이지 않도록 항상 우선 적용 */
+    [hidden] { display: none !important; }
+    /* 배경: 옅은 모눈종이 패턴(가로·세로 1px 선을 28px 간격으로 반복) */
+    body {
+      margin: 0;
+      color: var(--ink);
+      background-color: var(--paper);
+      background-image: linear-gradient(rgba(23, 42, 38, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(23, 42, 38, .025) 1px, transparent 1px);
+      background-size: 28px 28px;
+      font-family: var(--sans);
+    }
+    button, input, select { font: inherit; }
+    /* ===== 상단 바 ===== */
+    .topbar { background: #172a26; color: white; border-bottom: 3px solid #d78650; }
+    .topbar-inner { max-width: 1500px; margin: auto; min-height: 76px; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; color: #172a26; background: #b9dfc8; font-family: var(--mono); font-weight: 500; }
+    .brand-name { font-size: 17px; font-weight: 600; }
+    .brand-sub { margin-top: 2px; color: #a9bbb3; font: 11px var(--mono); letter-spacing: 0; }
+    .top-meta { color: #c6d2cc; font: 12px var(--mono); display: flex; align-items: center; gap: 9px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #a9d8b7; box-shadow: 0 0 0 4px rgba(169, 216, 183, .13); }
+    /* ===== 페이지 제목 영역 ===== */
+    main { max-width: 1500px; margin: 0 auto; padding: 28px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 22px; animation: arrive .35s ease-out both; }
+    .eyebrow { color: var(--green); font: 11px var(--mono); text-transform: uppercase; }
+    h1 { margin: 5px 0 0; font-size: 27px; line-height: 1.25; font-weight: 600; }
+    .heading-note { color: var(--muted); font: 12px var(--mono); }
+    /* ===== 2단 레이아웃: 왼쪽 입력 패널(320px 고정) + 오른쪽 결과 패널(나머지) ===== */
+    .workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
+    .control-panel, .results-panel { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(23, 42, 38, .035); }
+    /* 입력 패널은 스크롤해도 화면 위쪽에 붙어 있도록 sticky */
+    .control-panel { padding: 20px; position: sticky; top: 16px; animation: arrive .4s .04s ease-out both; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+    .step-mark { color: var(--orange); font: 11px var(--mono); }
+    /* ===== 입력 필드 공통 (라벨 + 힌트 + 안내 문구) ===== */
+    .field { display: block; margin: 0 0 16px; }
+    .field-label { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; font-size: 12px; font-weight: 600; }
+    .field-hint { color: var(--muted); font: 10px var(--mono); font-weight: 400; }
+    .field-note { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .field-disabled .field-label { color: #a3aea9; }
+    /* ===== 파일 끌어놓기 영역 (실제 <input type=file>은 숨기고 이 영역이 클릭·드롭을 받음) ===== */
+    .file-drop { min-height: 132px; border: 1px dashed #a8bbb0; background: #f7faf7; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; cursor: pointer; text-align: center; transition: border-color .18s, background .18s; }
+    .file-drop:hover, .file-drop.dragging { border-color: var(--green); background: var(--green-soft); }
+    .file-symbol { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid #bed2c6; color: var(--green); font: 15px var(--mono); margin-bottom: 9px; }
+    .file-prompt { font-size: 12px; font-weight: 600; }
+    .file-name { display: block; max-width: 100%; margin-top: 5px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+    select, input[type="number"] { width: 100%; min-height: 39px; border: 1px solid var(--line); background: white; color: var(--ink); padding: 8px 10px; outline: none; }
+    select:focus, input[type="number"]:focus, .file-drop:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107, 85, .1); }
+    select:disabled { background: #f1f4f1; color: #a3aea9; cursor: not-allowed; }
+    /* ===== 분석 유형 선택: 라디오 버튼을 숨기고 3칸 탭 모양으로 표시 ===== */
+    .segmented { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); }
+    .segmented label { position: relative; }
+    .segmented input { position: absolute; opacity: 0; }
+    .segmented span { display: block; padding: 9px 4px; text-align: center; font-size: 12px; cursor: pointer; border-right: 1px solid var(--line); }
+    .segmented label:last-child span { border-right: 0; }
+    .segmented input:checked + span { background: var(--green-soft); color: var(--green); font-weight: 600; box-shadow: inset 0 -2px 0 var(--green); }
+    .segmented input:focus-visible + span { outline: 2px solid var(--green); outline-offset: -2px; }
+    /* ===== 독립 변수 체크박스 목록 (많으면 220px 안에서 스크롤) ===== */
+    .feature-tools { display: flex; gap: 10px; }
+    .link-button { padding: 0; border: 0; background: none; color: var(--green); font: 10px var(--mono); cursor: pointer; }
+    .feature-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); background: white; }
+    .feature-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid #edf1ed; font-size: 12px; cursor: pointer; }
+    .feature-item:first-child { border-top: 0; }
+    .feature-item input { accent-color: var(--green); }
+    .feature-item.disabled { color: #a3aea9; cursor: not-allowed; }
+    .feature-item .dtype { margin-left: auto; color: var(--muted); font: 10px var(--mono); }
+    .feature-empty { padding: 12px 10px; color: var(--muted); font-size: 11px; }
+    /* ===== 학습 버튼 · 오류 메시지 ===== */
+    .primary-button { width: 100%; min-height: 44px; border: 0; background: var(--green); color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .16s, transform .16s; }
+    .primary-button:hover { background: #105640; }
+    .primary-button:active { transform: translateY(1px); }
+    .primary-button:disabled { opacity: .55; cursor: wait; }
+    .error-message { display: none; margin-top: 12px; padding: 10px 11px; color: #922f28; background: #fff0ed; border-left: 3px solid var(--red); font-size: 12px; line-height: 1.5; }
+    /* ===== 결과 패널: 결과가 없을 때는 empty-state, 학습 후에는 ml-dashboard 표시 ===== */
+    .results-panel { min-height: 620px; animation: arrive .45s .08s ease-out both; }
+    .empty-state { min-height: 620px; display: grid; place-content: center; justify-items: center; text-align: center; padding: 32px; }
+    .empty-index { color: var(--orange); font: 12px var(--mono); }
+    .empty-title { margin: 10px 0 5px; font-size: 17px; font-weight: 600; }
+    .empty-meta { color: var(--muted); font-size: 12px; }
+    .ml-dashboard { display: none; }
+    /* ===== 결과 요약 머리(분석 유형·알고리즘·파일·변수) ===== */
+    .summary-head { padding: 20px 22px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); }
+    .summary-file { min-width: 0; }
+    .summary-file strong { display: block; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+    .summary-file span { display: block; margin-top: 5px; color: var(--muted); font: 11px var(--mono); }
+    .status-pill { flex: 0 0 auto; padding: 6px 9px; color: var(--green); background: var(--green-soft); font: 10px var(--mono); }
+    /* ===== 평가 지표 카드 4칸 ===== */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+    .kpi { min-height: 100px; padding: 17px 19px; border-right: 1px solid var(--line); }
+    .kpi:last-child { border-right: 0; }
+    .kpi-label { color: var(--muted); font-size: 11px; }
+    .kpi-value { margin-top: 11px; font: 21px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+    .kpi-value.accent { color: var(--green); }
+    /* ===== 지표 설명 툴팁 =====
+       .kpi 카드 또는 .help 라벨에 마우스를 올리거나(:hover) 키보드로 포커스하면(:focus-visible)
+       안에 들어 있는 .tooltip을 보여준다. 오른쪽 카드는 화면 밖으로 나가지 않게 오른쪽 기준으로 정렬. */
+    .kpi { position: relative; }
+    .kpi[data-help] { cursor: help; }
+    .kpi[data-help]:hover, .kpi[data-help]:focus-visible { background: #f7faf7; outline: none; }
+    .kpi-label { display: flex; align-items: center; gap: 6px; }
+    .help-mark { width: 14px; height: 14px; display: inline-grid; place-items: center; flex: 0 0 auto; border: 1px solid #bccac2; border-radius: 50%; color: var(--muted); font: 9px var(--mono); }
+    .help { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: help; outline: none; }
+    .tooltip { position: absolute; z-index: 20; top: calc(100% + 8px); left: 12px; width: 300px; max-width: calc(100vw - 40px); padding: 12px 13px; color: #e8efeb; background: #172a26; box-shadow: 0 10px 28px rgba(23, 42, 38, .25); font: 11px/1.65 var(--sans); text-align: left; white-space: normal; opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .14s, transform .14s, visibility .14s; pointer-events: none; }
+    .tooltip strong { display: block; margin-bottom: 5px; color: #b9dfc8; font-size: 12px; font-weight: 600; }
+    .tooltip code { color: #f0b48f; font: 10.5px var(--mono); }
+    .tooltip .tip-row { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .1); color: #c6d2cc; }
+    .kpi .tooltip { top: calc(100% - 10px); }
+    .kpi:nth-child(n+3) .tooltip, .help.align-right .tooltip { left: auto; right: 12px; }
+    .help .tooltip { left: -8px; top: calc(100% + 6px); }
+    .help.align-right .tooltip { right: -8px; }
+    .kpi:hover .tooltip, .kpi:focus-visible .tooltip, .help:hover .tooltip, .help:focus-visible .tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
+    /* ===== 결과 섹션(차트·영향도·군집표) 공통 ===== */
+    .section { padding: 20px 22px; border-bottom: 1px solid var(--line); }
+    .section:last-child { border-bottom: 0; }
+    .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+    .section-heading h3 { margin: 0; font-size: 14px; font-weight: 600; }
+    .section-code { color: var(--muted); font: 10px var(--mono); }
+    /* 표가 넓으면 가로 스크롤 */
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+    th { padding: 9px 10px; color: var(--muted); background: #f5f8f5; text-align: left; font-weight: 500; }
+    td { padding: 9px 10px; border-top: 1px solid #edf1ed; font-family: var(--mono); }
+    /* ===== SVG 산점도 영역과 범례 ===== */
+    .chart-block { min-width: 0; border: 1px solid var(--line); }
+    .chart-svg { display: block; width: 100%; height: 320px; overflow: visible; }
+    .chart-legend { display: flex; flex-wrap: wrap; gap: 13px; padding: 0 13px 12px; color: var(--muted); font-size: 10px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-line { width: 15px; height: 2px; background: var(--orange); }
+    .signal-empty { padding: 13px 10px; color: var(--green); background: var(--green-soft); font-size: 11px; }
+    /* ===== 변수 영향도 가로 막대 (초록 = 양수, 주황 = 음수 계수) ===== */
+    .importance-list { display: grid; gap: 7px; }
+    .importance-row { display: grid; grid-template-columns: minmax(90px, 180px) minmax(0, 1fr) 72px; align-items: center; gap: 10px; font-size: 11px; }
+    .importance-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .importance-track { height: 9px; background: #edf1ed; }
+    .importance-bar { height: 100%; background: var(--green); }
+    .importance-bar.negative { background: var(--orange); }
+    .importance-row strong { font: 11px var(--mono); text-align: right; }
+    /* 혼동 행렬 셀 가운데 정렬 · 군집 색 점(swatch) */
+    .matrix td { text-align: center; }
+    .matrix th[scope="row"] { font-family: var(--mono); }
+    .swatch { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; vertical-align: middle; }
+    footer { max-width: 1500px; margin: 0 auto; padding: 0 28px 24px; color: #77857e; font: 10px var(--mono); }
+    /* 패널 등장 애니메이션(아래에서 살짝 올라오며 나타남) */
+    @keyframes arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    /* ===== 반응형: 태블릿 폭에서는 KPI를 2열로 ===== */
+    @media (max-width: 980px) {
+      main { padding: 20px; }
+      .workspace { grid-template-columns: 280px minmax(0, 1fr); gap: 14px; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .kpi:nth-child(2) { border-right: 0; }
+      .kpi:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .kpi:nth-child(odd) .tooltip { left: 12px; right: auto; }
+      .kpi:nth-child(even) .tooltip { left: auto; right: 12px; }
+    }
+    /* ===== 반응형: 휴대폰 폭에서는 패널을 세로 1열로 쌓음 ===== */
+    @media (max-width: 700px) {
+      .topbar-inner { padding: 12px 17px; min-height: 66px; }
+      .top-meta { display: none; }
+      main { padding: 18px 14px; }
+      footer { padding: 0 14px 18px; }
+      .workspace { grid-template-columns: minmax(0, 1fr); }
+      .workspace > * { min-width: 0; }
+      .control-panel { position: static; }
+      .page-heading { align-items: start; flex-direction: column; }
+      .heading-note { align-self: end; }
+      .results-panel, .empty-state { min-height: 420px; }
+      .summary-head { align-items: start; }
+      .section { padding: 17px 14px; }
+      .kpi { padding: 14px; min-height: 88px; }
+      .kpi-value { font-size: 18px; }
+      .chart-svg { height: 240px; }
+    }
+    /* 사용자가 OS에서 '동작 줄이기'를 켠 경우 애니메이션 제거 */
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <!-- 상단 바: 앱 이름과 지원 분석 유형 -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div><div class="brand-name">데이터 모델링</div><div class="brand-sub">MLOPS / MODEL STUDIO</div></div>
+      </div>
+      <div class="top-meta"><span class="live-dot"></span>REGRESSION · CLASSIFICATION · CLUSTERING</div>
+    </div>
+  </header>
+  <main>
+    <!-- 페이지 제목 -->
+    <div class="page-heading">
+      <div><div class="eyebrow">MODEL / 01</div><h1>머신러닝 분석 리포트</h1></div>
+      <div class="heading-note">CSV · XLSX · XLS / MAX 20 MB</div>
+    </div>
+    <div class="workspace">
+      <!-- ===== 왼쪽: 분석 조건 입력 패널 ===== -->
+      <aside class="control-panel">
+        <div class="panel-head"><h2>분석 조건</h2><span class="step-mark">INPUT / 01</span></div>
+        <form id="upload-form">
+          <!-- 데이터 파일: 클릭 또는 끌어놓기. 선택 즉시 /columns로 열 목록을 불러온다. -->
+          <label class="field">
+            <span class="field-label">데이터 파일 <span class="field-hint">CSV / EXCEL</span></span>
+            <span class="file-drop" id="file-drop">
+              <span class="file-symbol" aria-hidden="true">↑</span>
+              <span class="file-prompt">파일 선택 또는 여기로 끌어오기</span>
+              <span class="file-name" id="file-name">UTF-8 · CP949 지원</span>
+            </span>
+            <input id="file-input" name="file" type="file" accept=".csv,.xlsx,.xls" required>
+          </label>
+          <!-- 워크시트: Excel 파일일 때만 표시. 바꾸면 해당 시트의 열 목록을 다시 불러온다. -->
+          <label class="field" id="sheet-field" hidden>
+            <span class="field-label">워크시트</span>
+            <select id="sheet-picker" aria-label="분석할 워크시트"></select>
+          </label>
+          <!-- 분석 유형: 바꾸면 알고리즘 목록·종속 변수 후보·추가 옵션이 함께 바뀐다. -->
+          <div class="field">
+            <div class="field-label">분석 유형 <span class="field-hint">TASK</span></div>
+            <div class="segmented" id="task-picker">
+              <label><input type="radio" name="task" value="regression" checked><span>회귀</span></label>
+              <label><input type="radio" name="task" value="classification"><span>분류</span></label>
+              <label><input type="radio" name="task" value="clustering"><span>군집</span></label>
+            </div>
+          </div>
+          <!-- 알고리즘: /ml/algorithms 응답으로 채운다. -->
+          <label class="field">
+            <span class="field-label">알고리즘 <span class="field-hint">MODEL</span></span>
+            <select id="algorithm-picker" aria-label="알고리즘"></select>
+          </label>
+          <!-- 종속 변수(Y): 1개 선택. 회귀는 수치형 열만, 군집은 선택 불가(disabled). -->
+          <label class="field" id="target-field">
+            <span class="field-label">종속 변수 · Y <span class="field-hint" id="target-hint">1 COLUMN</span></span>
+            <select id="target-picker" aria-label="종속 변수"></select>
+            <span class="field-note" id="target-note"></span>
+          </label>
+          <!-- 독립 변수(X): 여러 개 선택. 종속 변수로 고른 열은 자동으로 비활성화된다. -->
+          <div class="field">
+            <div class="field-label">독립 변수 · X <span class="feature-tools"><button class="link-button" type="button" id="select-all-features">전체 선택</button><button class="link-button" type="button" id="clear-features">해제</button></span></div>
+            <div class="feature-list" id="feature-list"></div>
+            <div class="field-note" id="feature-count"></div>
+          </div>
+         
+          <label class="field" id="test-size-field">
+            <span class="field-label">테스트 데이터 비율 <span class="field-hint">0.1 – 0.5</span></span>
+            <input id="test-size-input" type="number" min="0.1" max="0.5" step="0.05" value="0.2">
+          </label>
+          
+          <label class="field" id="cluster-field" hidden>
+            <span class="field-label">군집 개수 · K <span class="field-hint">2 – 20</span></span>
+            <input id="cluster-input" type="number" min="2" max="20" step="1" value="3">
+          </label>
+          <button class="primary-button" id="analyze-button" type="submit">모델 학습</button>
+          <div class="error-message" id="error-message" role="alert"></div>
+        </form>
+      </aside>
+
+     
+      <section class="results-panel" aria-live="polite">
+       
+        <div class="empty-state" id="empty-state">
+          <span class="empty-index">REPORT / WAITING</span>
+          <div class="empty-title">분석 결과가 여기에 표시됩니다</div>
+          <div class="empty-meta">분석 유형과 종속·독립 변수를 선택한 뒤 모델을 학습하세요.</div>
+        </div>
+       
+        <div class="ml-dashboard" id="ml-dashboard">
+          <div class="summary-head">
+            <div class="summary-file"><strong id="ml-title"></strong><span id="ml-meta"></span></div>
+            <span class="status-pill">TRAINED</span>
+          </div>
+         
+          <div class="kpi-grid" id="ml-kpis"></div>
+         
+          <section class="section">
+            <div class="section-heading"><h3 id="ml-chart-title">-</h3><span class="section-code" id="ml-chart-code"></span></div>
+            <div class="chart-block" id="ml-chart-block"><svg id="ml-chart" class="chart-svg" viewBox="0 0 900 320" role="img"></svg><div class="chart-legend" id="ml-legend"></div></div>
+            <div class="table-wrap" id="ml-matrix-wrap" hidden><table class="matrix" id="ml-matrix"></table></div>
+          </section>
+          
+          <section class="section" id="ml-importance-section">
+            <div class="section-heading"><h3>변수 영향도</h3><span class="section-code" id="ml-importance-code">FEATURE IMPORTANCE</span></div>
+            <div class="importance-list" id="ml-importance"></div>
+          </section>
+          
+          <section class="section" id="ml-profile-section">
+            <div class="section-heading"><h3>군집별 특성</h3><span class="section-code">CLUSTER PROFILE / MEAN</span></div>
+            <div class="table-wrap"><table id="ml-profile"></table></div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer>NUMERIC X: MEDIAN IMPUTE + STANDARD SCALE · CATEGORICAL X: MODE IMPUTE + ONE-HOT · RANDOM_STATE 42</footer>
+  <script>
+    // =====================================================================
+    // 1. 자주 쓰는 DOM 요소와 상수·상태
+    // =====================================================================
+    const form = document.querySelector('#upload-form');
+    const fileInput = document.querySelector('#file-input');  //type=file 인 태그
+    const fileDrop = document.querySelector('#file-drop');
+    const fileName = document.querySelector('#file-name');
+    const sheetField = document.querySelector('#sheet-field');
+    const sheetPicker = document.querySelector('#sheet-picker');
+    const button = document.querySelector('#analyze-button');
+    const errorMessage = document.querySelector('#error-message');
+    const algorithmPicker = document.querySelector('#algorithm-picker');
+    const targetPicker = document.querySelector('#target-picker');
+    const targetField = document.querySelector('#target-field');
+    const featureList = document.querySelector('#feature-list');
+    // 숫자 표시 형식: 한국어 천 단위 구분, 소수점 최대 4자리
+    const numberFormat = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 4 });
+    // 결과 제목에 쓰는 분석 유형 한글 이름
+    const TASK_LABELS = { regression: '회귀 분석', classification: '분류 분석', clustering: '군집 분석' };
+    // 군집 번호별 점 색상(8색 순환). 노이즈(-1)는 clusterColor()에서 회색 처리
+    const CLUSTER_COLORS = ['#176b55', '#c76536', '#3a6ea5', '#8a5a9e', '#b08a1e', '#2a9d8f', '#b8473d', '#5c6b8a'];
+    // 서버에서 받은 알고리즘 목록, 현재 파일의 열 목록 [{name, dtype, numeric, unique_count}]
+    let algorithms = {};
+    let columns = [];
+
+   
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    }
+
+   
+    function formatNumber(value) {
+      return value === null || value === undefined || !Number.isFinite(Number(value)) ? '-' : numberFormat.format(Number(value));
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+    }
+
+  
+    
+    function updateFileLabel(file) {
+      fileName.textContent = file ? file.name : 'UTF-8 · CP949 지원';
+    }
+
+    // 파일 선택한 값이 변경된 경우. 
+    fileInput.addEventListener('change', () => { updateFileLabel(fileInput.files[0]); loadColumns(true); });
+    
+    // 끌어오기로 파일 업로드 이벤트
+    for (const eventName of ['dragenter', 'dragover']) {
+      fileDrop.addEventListener(eventName, (event) => { event.preventDefault(); fileDrop.classList.add('dragging'); });
+    }
+    for (const eventName of ['dragleave', 'drop']) {
+      fileDrop.addEventListener(eventName, (event) => { event.preventDefault(); fileDrop.classList.remove('dragging'); });
+    }
+   
+    fileDrop.addEventListener('drop', (event) => {
+      const [file] = event.dataTransfer.files;
+      if (!file) return;
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      fileInput.files = transfer.files;
+      updateFileLabel(file);
+      loadColumns(true);
+    });
+
+    
+    const currentTask = () => document.querySelector('input[name="task"]:checked').value;
+   
+    const selectedFeatures = () => [...featureList.querySelectorAll('input:checked')].map((input) => input.value);
+
+   
+    function updateFeatureCount() {
+      document.querySelector('#feature-count').textContent = `${selectedFeatures().length}개 선택 · 범주형(CAT) 열은 원-핫 인코딩됩니다.`;
+    }
+
+   
+    function renderFeatureList() {
+      const checked = new Set(selectedFeatures());
+      const target = currentTask() === 'clustering' ? null : targetPicker.value;
+      featureList.innerHTML = columns.length
+        ? columns.map((column) => {
+          const isTarget = column.name === target;
+          return `<label class="feature-item${isTarget ? ' disabled' : ''}"><input type="checkbox" value="${escapeHtml(column.name)}"${checked.has(column.name) && !isTarget ? ' checked' : ''}${isTarget ? ' disabled' : ''}><span>${escapeHtml(column.name)}</span><span class="dtype">${isTarget ? 'TARGET' : column.numeric ? 'NUM' : 'CAT'}</span></label>`;
+        }).join('')
+        : '<div class="feature-empty">파일을 선택하면 열 목록이 표시됩니다.</div>';
+      updateFeatureCount();
+    }
+
+  
+    function renderTargetPicker() {
+      const task = currentTask();
+      const isClustering = task === 'clustering';
+      const previous = targetPicker.value;
+      const candidates = task === 'regression' ? columns.filter((column) => column.numeric) : columns;
+      targetPicker.replaceChildren(...(isClustering
+        ? [new Option('군집 분석은 종속 변수 없음', '')]
+        : candidates.map((column) => new Option(column.name, column.name))));
+      if (!isClustering && candidates.some((column) => column.name === previous)) targetPicker.value = previous;
+      targetPicker.disabled = isClustering || !candidates.length;
+      targetField.classList.toggle('field-disabled', isClustering);
+      document.querySelector('#target-hint').textContent = isClustering ? 'DISABLED' : task === 'regression' ? 'NUMERIC · 1' : 'CATEGORY · 1';
+      document.querySelector('#target-note').textContent = isClustering
+        ? '군집은 비지도 학습이므로 종속 변수를 선택할 수 없습니다.'
+        : task === 'regression' ? '수치형 열만 선택할 수 있습니다.' : '라벨 열을 선택하세요. 수치형 열은 값마다 하나의 범주로 처리됩니다.';
+    }
+
+  
+    function updateAlgorithmControls() {
+      const task = currentTask();
+      document.querySelector('#test-size-field').hidden = task === 'clustering';
+      document.querySelector('#cluster-field').hidden = task !== 'clustering' || algorithmPicker.value === 'dbscan';
+    }
+
+   
+    // 화면을 reload효과
+    function renderTaskControls() {
+      algorithmPicker.replaceChildren(...Object.entries(algorithms[currentTask()] || {}).map(([value, label]) => new Option(label, value)));
+      renderTargetPicker();
+      renderFeatureList();
+      updateAlgorithmControls();
+    }
+
+   // 서버에 "/columns" 요청 
+   // resetSheet=true 인경우 : 첫 시트 읽기
+   // resetSheet=false 인 경우 : 선택한 시트를 읽기
+    async function loadColumns(resetSheet) {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const body = new FormData();
+      body.append('file', file);
+      const query = new URLSearchParams();
+      if (!resetSheet && sheetPicker.value) query.set('sheet_name', sheetPicker.value);
+      try {
+        //response : 서버에서 응답 객체
+        /*
+        {
+       "row_count" : int(len(dataframe)),  #데이터의 레코드 갯수
+       "sheets" : sheets,  #sheet 이름 목록
+       "selected_sheet" : selected_sheet,  #선택한 sheet이름
+       "columns" :[  #name : 컬럼이름 한개
+          {
+             "name" : str(name),
+             "dtype" : str(dataframe[name].dtype),
+             "numeric" : bool(pd.api.types.is_numeric_dtype(dataframe[name])),
+             "unique_count" : int(dataframe[name].nunique())  #범주의 값
+          },
+          {...},
+         }
+       ],
+    }
+        */
+        const response = await fetch(`/columns?${query.toString()}`, { method: 'POST', body });
+        const data = await response.json();  //서버에서 json형식으로 전달함
+        if (!response.ok) throw new Error(data.detail || '열 목록을 읽지 못했습니다.');
+        if (resetSheet) {
+          sheetPicker.replaceChildren(...(data.sheets || []).map((name) => new Option(name, name)));
+          sheetField.hidden = !data.sheets?.length;
+          if (data.selected_sheet) sheetPicker.value = data.selected_sheet;
+        }
+        columns = data.columns;
+        
+        featureList.replaceChildren();
+        renderTargetPicker();
+        renderFeatureList();
+        errorMessage.style.display = 'none';
+      } catch (error) {
+        showError(error.message || '서버에 연결할 수 없습니다.');
+      }
+    }
+
+    
+    for (const radio of document.querySelectorAll('input[name="task"]')) radio.addEventListener('change', renderTaskControls);
+    algorithmPicker.addEventListener('change', updateAlgorithmControls);
+    targetPicker.addEventListener('change', renderFeatureList);
+    featureList.addEventListener('change', updateFeatureCount);
+    sheetPicker.addEventListener('change', () => loadColumns(false));
+    document.querySelector('#select-all-features').addEventListener('click', () => {
+      for (const input of featureList.querySelectorAll('input:not(:disabled)')) input.checked = true;
+      updateFeatureCount();
+    });
+    document.querySelector('#clear-features').addEventListener('click', () => {
+      for (const input of featureList.querySelectorAll('input')) input.checked = false;
+      updateFeatureCount();
+    });
+  
+    //머신러닝 알고리즘을 서버에서 받음
+    renderTaskControls();
+
+    fetch('/ml/algorithms')  //서버 요청.   Get방식 요청
+    .then((response) => response.json())  //서버에서 정상적인 응답이 온경우
+    .then((data) => {                     //response.json 함수결과값을 받아서 다시 호출
+        algorithms = data;                //data : json 객체임
+        renderTaskControls(); 
+    });
+
+    
+    function appendSvg(svg, tag, attributes, text) {
+      const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+      if (text !== undefined) element.textContent = text;
+      svg.append(element);
+      return element;
+    }
+
+
+    function drawScatter(points, options) {
+      const svg = document.querySelector('#ml-chart');
+      svg.replaceChildren();
+      const width = 900;
+      const height = 320;
+      const margin = { top: 20, right: 24, bottom: 42, left: 84 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      let minX = Math.min(...points.map((point) => point.x));
+      let maxX = Math.max(...points.map((point) => point.x));
+      let minY = Math.min(...points.map((point) => point.y));
+      let maxY = Math.max(...points.map((point) => point.y));
+      if (options.diagonal) {
+        minX = minY = Math.min(minX, minY);
+        maxX = maxY = Math.max(maxX, maxY);
+      }
+     
+      const padX = (maxX - minX || 1) * 0.06;
+      const padY = (maxY - minY || 1) * 0.06;
+      minX -= padX; maxX += padX; minY -= padY; maxY += padY;
+    
+      const x = (value) => margin.left + (value - minX) * plotWidth / (maxX - minX);
+      const y = (value) => margin.top + (maxY - value) * plotHeight / (maxY - minY);
+      const label = { fill: '#74827b', 'font-size': 10, 'font-family': 'DM Mono, monospace' };
+     
+      for (let tick = 0; tick <= 4; tick += 1) {
+        const valueY = maxY - (maxY - minY) * tick / 4;
+        const valueX = minX + (maxX - minX) * tick / 4;
+        appendSvg(svg, 'line', { x1: margin.left, x2: width - margin.right, y1: y(valueY), y2: y(valueY), stroke: '#e7ede8', 'stroke-width': 1 });
+        appendSvg(svg, 'text', { ...label, x: margin.left - 9, y: y(valueY) + 4, 'text-anchor': 'end' }, formatNumber(valueY));
+        appendSvg(svg, 'text', { ...label, x: x(valueX), y: height - 24, 'text-anchor': 'middle' }, formatNumber(valueX));
+      }
+      if (options.diagonal) {
+        appendSvg(svg, 'line', { x1: x(minX), y1: y(minY), x2: x(maxX), y2: y(maxY), stroke: '#c76536', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' });
+      }
+      
+      for (const point of points) appendSvg(svg, 'circle', { cx: x(point.x), cy: y(point.y), r: 3.6, fill: point.color, 'fill-opacity': 0.78 });
+      appendSvg(svg, 'text', { ...label, x: margin.left + plotWidth / 2, y: height - 6, 'text-anchor': 'middle' }, options.xLabel);
+      appendSvg(svg, 'text', { ...label, x: 14, y: margin.top + plotHeight / 2, 'text-anchor': 'middle', transform: `rotate(-90 14 ${margin.top + plotHeight / 2})` }, options.yLabel);
+      svg.setAttribute('aria-label', options.title);
+    }
+
+    
+    const clusterColor = (cluster) => cluster === -1 ? '#a3aea9' : CLUSTER_COLORS[cluster % CLUSTER_COLORS.length];
+    const clusterName = (cluster) => cluster === -1 ? '노이즈' : `군집 ${cluster}`;
+
+   
+    const METRIC_HELP = {
+      r2: ['결정계수 · R²', '모델이 종속 변수의 변동(분산)을 얼마나 설명하는지 나타냅니다. 학습에 쓰지 않은 테스트 데이터로 계산합니다.', '<code>1 − Σ(y − ŷ)² / Σ(y − ȳ)²</code>', '1이면 완벽한 예측이고, 0이면 평균값 하나로 예측한 것과 같습니다. 음수면 평균보다도 못한 모델입니다. 학습 R²보다 크게 낮으면 과적합을 의심하세요.'],
+      rmse: ['평균 제곱근 오차 · RMSE', '예측 오차를 제곱해 평균한 뒤 제곱근을 취한 값입니다. 종속 변수와 같은 단위라서 "평균적으로 이만큼 빗나간다"로 읽을 수 있습니다.', '<code>√( Σ(y − ŷ)² / n )</code>', '작을수록 좋습니다. 오차를 제곱하기 때문에 큰 오차에 더 민감합니다. MAE보다 훨씬 크면 일부 행에서 크게 빗나간 것입니다.'],
+      mae: ['평균 절대 오차 · MAE', '예측값과 실제값 차이의 절댓값을 평균한 값입니다. 종속 변수와 같은 단위를 씁니다.', '<code>Σ|y − ŷ| / n</code>', '작을수록 좋습니다. RMSE보다 이상치의 영향을 덜 받아 "보통 수준의 오차"를 보여줍니다.'],
+      split: ['학습 / 테스트 행 수', '전체 데이터를 무작위로 나눠 학습 데이터로 모델을 만들고, 남겨 둔 테스트 데이터로 성능을 평가합니다. 위 지표는 모두 테스트 데이터 기준입니다.', '<code>random_state = 42</code>로 고정되어 같은 조건이면 결과가 재현됩니다.', '종속 변수가 비어 있는 행은 제외됩니다. 테스트 행이 너무 적으면 지표가 크게 흔들리므로 해석에 주의하세요.'],
+      accuracy: ['정확도 · Accuracy', '테스트 데이터 중 범주를 정확히 맞힌 비율입니다.', '<code>맞힌 행 수 / 전체 테스트 행 수</code>', '0~1 사이이며 1에 가까울수록 좋습니다. 특정 범주가 대부분인 불균형 데이터에서는 다수 범주만 찍어도 높게 나오므로 F1과 함께 보세요.'],
+      f1: ['F1 점수 · macro 평균', '정밀도와 재현율의 조화평균입니다. 범주마다 F1을 구한 뒤 단순 평균(macro)하므로, 행이 적은 범주도 같은 비중으로 반영됩니다.', '<code>2 × 정밀도 × 재현율 / (정밀도 + 재현율)</code>', '0~1 사이이며 1에 가까울수록 좋습니다. 정확도는 높은데 F1이 낮으면 소수 범주를 잘 못 맞히고 있다는 뜻입니다.'],
+      precision: ['정밀도 / 재현율 · macro 평균', '정밀도: 모델이 어떤 범주라고 예측한 것 중 실제로 그 범주인 비율입니다(오탐이 적을수록 높음). 재현율: 실제 그 범주인 행 중 모델이 찾아낸 비율입니다(놓친 것이 적을수록 높음).', '<code>정밀도 = TP / (TP + FP)</code> · <code>재현율 = TP / (TP + FN)</code>', '범주별로 계산한 뒤 평균합니다. 불량 검출처럼 놓치면 안 되는 경우에는 재현율을, 오경보 비용이 큰 경우에는 정밀도를 중시하세요.'],
+      clusters: ['군집 수', '알고리즘이 만든 군집의 개수입니다. 노이즈로 분류된 행은 세지 않습니다.', 'K-평균·계층적 군집은 입력한 K를 그대로 쓰고, DBSCAN은 데이터 밀도에 따라 개수를 자동으로 정합니다.', 'K를 바꿔 가며 실루엣 계수가 가장 높은 값을 찾는 방식으로 적절한 군집 수를 고를 수 있습니다.'],
+      silhouette: ['실루엣 계수 · Silhouette', '각 행이 자기 군집과 얼마나 가깝고 다른 군집과 얼마나 떨어져 있는지를 평균한 값입니다. 표준화된 독립 변수 공간에서 계산합니다.', '<code>(b − a) / max(a, b)</code> · a: 같은 군집까지 평균 거리, b: 가장 가까운 다른 군집까지 평균 거리', '−1~1 사이입니다. 0.5 이상이면 군집이 잘 분리된 편이고, 0 근처면 군집 경계가 겹치며, 음수면 잘못 배정된 행이 많습니다. 군집이 1개뿐이면 계산할 수 없습니다(-).'],
+      noise: ['노이즈 행', 'DBSCAN에서 어떤 군집에도 속하지 않는다고 판단된 행(라벨 −1)의 수입니다. 주변에 이웃이 충분하지 않은, 밀도가 낮은 지점입니다.', 'K-평균과 계층적 군집은 모든 행을 군집에 배정하므로 항상 0입니다.', '노이즈가 지나치게 많으면 변수 구성이나 스케일을 다시 검토하세요. 노이즈 행은 실루엣 계산에서 제외됩니다.'],
+      rows: ['데이터 행', '군집 분석에 사용한 행 수입니다.', '독립 변수의 결측값은 수치형은 중앙값, 범주형은 최빈값으로 채우므로 모든 행이 사용됩니다.', '산점도는 600점을 넘으면 균등하게 추출해 표시하지만, 군집 계산은 전체 행으로 합니다.'],
+      train_r2: ['학습 R²', '모델을 만든 학습 데이터에서 계산한 R²입니다.', '테스트 R²와 비교해 일반화 정도를 판단합니다.', '학습 R²는 높은데 테스트 R²가 크게 낮으면 학습 데이터에 과하게 맞춘(과적합) 상태입니다. 트리 계열 모델에서 자주 나타납니다.'],
+      train_accuracy: ['학습 정확도', '모델을 만든 학습 데이터에서 계산한 정확도입니다.', '테스트 정확도와 비교해 일반화 정도를 판단합니다.', '학습 정확도가 테스트보다 훨씬 높으면 과적합입니다. 둘 다 낮으면 변수가 부족하거나 모델이 너무 단순한 것입니다.'],
+      importance: ['변수 중요도 · Feature importance', '트리 기반 모델이 분기할 때 각 변수가 불순도(오차)를 얼마나 줄였는지 합산한 값입니다. 전체 합은 1입니다.', '범주형 변수는 원-핫 인코딩된 값(예: <code>lot_L001</code>)별로 표시됩니다.', '영향의 크기만 나타내며 방향(증가·감소)은 알 수 없습니다. 서로 상관이 높은 변수끼리는 중요도가 나뉘어 낮게 보일 수 있습니다.'],
+      coefficient: ['표준화 회귀 계수', '독립 변수를 표준화(평균 0, 표준편차 1)한 뒤 학습한 선형 모델의 계수입니다. 해당 변수가 1 표준편차 증가할 때 예측값이 얼마나 변하는지를 뜻합니다.', '초록색 막대는 양(+)의 영향, 주황색 막대는 음(−)의 영향입니다.', '표준화했기 때문에 변수 간 크기를 비교할 수 있습니다. 변수끼리 상관이 높으면 계수가 불안정해질 수 있습니다.'],
+      mean_abs_coefficient: ['평균 |계수| · 다중 분류', '로지스틱 회귀가 범주마다 학습한 계수의 절댓값을 평균한 값입니다. 독립 변수는 표준화되어 있습니다.', '범주가 3개 이상이면 범주별로 계수가 따로 있어, 크기만 요약해 보여줍니다.', '값이 클수록 범주를 구분하는 데 많이 쓰인 변수입니다. 방향은 범주마다 다를 수 있습니다.'],
+    };
+
+   
+    function helpContent(key) {
+      const [title, body, formula, guide] = METRIC_HELP[key];
+      return `<span class="tooltip" role="tooltip"><strong>${title}</strong>${body}<span class="tip-row">${formula}</span><span class="tip-row">${guide}</span></span>`;
+    }
+
+  
+    function helpLabel(text, key, alignRight) {
+      return `<span class="help${alignRight ? ' align-right' : ''}" tabindex="0">${escapeHtml(text)}<span class="help-mark" aria-hidden="true">?</span>${helpContent(key)}</span>`;
+    }
+
+  
+    function renderKpis(items) {
+      document.querySelector('#ml-kpis').innerHTML = items.map(([label, value, accent, key]) => `<div class="kpi" tabindex="0" data-help="${key}"><div class="kpi-label">${escapeHtml(label)}<span class="help-mark" aria-hidden="true">?</span></div><div class="kpi-value${accent ? ' accent' : ''}">${escapeHtml(value)}</div>${helpContent(key)}</div>`).join('');
+    }
+
+   
+    function renderImportance(items) {
+      const container = document.querySelector('#ml-importance');
+      if (!items.length) {
+        document.querySelector('#ml-importance-code').textContent = 'NOT AVAILABLE';
+        container.innerHTML = '<div class="signal-empty">이 알고리즘은 변수 영향도를 제공하지 않습니다.</div>';
+        return;
+      }
+      const kind = items[0].kind;
+      document.querySelector('#ml-importance-code').innerHTML = helpLabel(kind === 'importance' ? 'FEATURE IMPORTANCE' : kind === 'coefficient' ? 'STANDARDIZED COEFFICIENT' : 'MEAN |COEFFICIENT|', kind, true);
+      const max = Math.max(...items.map((item) => Math.abs(item.value))) || 1;
+      container.innerHTML = items.map((item) => `<div class="importance-row"><span title="${escapeHtml(item.feature)}">${escapeHtml(item.feature)}</span><div class="importance-track"><div class="importance-bar${item.value < 0 ? ' negative' : ''}" style="width: ${Math.abs(item.value) / max * 100}%"></div></div><strong>${formatNumber(item.value)}</strong></div>`).join('');
+    }
+
+  
+    function renderConfusionMatrix(classes, matrix) {
+      const max = Math.max(1, ...matrix.flat());
+      const header = `<thead><tr><th>실제 ↓ · 예측 →</th>${classes.map((name) => `<th>${escapeHtml(name)}</th>`).join('')}</tr></thead>`;
+      const rows = matrix.map((row, rowIndex) => {
+        const cells = row.map((value, colIndex) => {
+          const tone = rowIndex === colIndex ? '23, 107, 85' : '199, 101, 54';
+          const alpha = value ? 0.12 + 0.6 * value / max : 0;
+          return `<td style="background: rgba(${tone}, ${alpha}); color: ${alpha > 0.5 ? 'white' : 'inherit'}">${value}</td>`;
+        }).join('');
+        return `<tr><th scope="row">${escapeHtml(classes[rowIndex])}</th>${cells}</tr>`;
+      }).join('');
+      document.querySelector('#ml-matrix').innerHTML = `${header}<tbody>${rows}</tbody>`;
+    }
+
+   
+    function renderClusterProfile(profiles) {
+      const keys = profiles.length ? Object.keys(profiles[0].means) : [];
+      const header = `<thead><tr><th>군집</th><th>크기</th>${keys.map((key) => `<th>${escapeHtml(key)}</th>`).join('')}</tr></thead>`;
+      const rows = profiles.map((profile) => `<tr><td><span class="swatch" style="background:${clusterColor(profile.cluster)}"></span>${clusterName(profile.cluster)}</td><td>${profile.size}</td>${keys.map((key) => `<td>${formatNumber(profile.means[key])}</td>`).join('')}</tr>`).join('');
+      document.querySelector('#ml-profile').innerHTML = `${header}<tbody>${rows}</tbody>`;
+    }
+
+   
+    function renderMlResult(data) {
+      const isClustering = data.task === 'clustering';
+      document.querySelector('#empty-state').style.display = 'none';
+      document.querySelector('#ml-dashboard').style.display = 'block';
+      document.querySelector('#ml-title').textContent = `${TASK_LABELS[data.task]} · ${data.algorithm_label}`;
+      document.querySelector('#ml-meta').textContent = `${data.filename}${data.selected_sheet ? ` · ${data.selected_sheet}` : ''} · ${data.target ? `Y = ${data.target} · ` : ''}X = ${data.features.join(', ')}`;
+      document.querySelector('#ml-chart-block').hidden = data.task === 'classification';
+      document.querySelector('#ml-matrix-wrap').hidden = data.task !== 'classification';
+      document.querySelector('#ml-importance-section').hidden = isClustering;
+      document.querySelector('#ml-profile-section').hidden = !isClustering;
+      const legend = document.querySelector('#ml-legend');
+      const metrics = data.metrics;
+
+      if (data.task === 'regression') {
+        renderKpis([['R² · 테스트', formatNumber(metrics.r2), true, 'r2'], ['RMSE', formatNumber(metrics.rmse), false, 'rmse'], ['MAE', formatNumber(metrics.mae), false, 'mae'], ['학습 / 테스트 행', `${data.train_count} / ${data.test_count}`, false, 'split']]);
+        document.querySelector('#ml-chart-title').textContent = '실제값 vs 예측값';
+        document.querySelector('#ml-chart-code').innerHTML = `TEST SET · ${helpLabel(`TRAIN R² ${formatNumber(metrics.train_r2)}`, 'train_r2', true)}`;
+        drawScatter(data.predictions.map((point) => ({ x: point.actual, y: point.predicted, color: '#176b55' })), { diagonal: true, xLabel: `실제값 · ${data.target}`, yLabel: '예측값', title: '실제값 대비 예측값 산점도' });
+        legend.innerHTML = '<span class="legend-item"><span class="swatch" style="background:#176b55"></span>테스트 데이터</span><span class="legend-item"><i class="legend-line"></i>완벽 예측선 (y = x)</span>';
+        renderImportance(data.feature_importance);
+      } else if (data.task === 'classification') {
+        renderKpis([['정확도 · 테스트', formatNumber(metrics.accuracy), true, 'accuracy'], ['F1 · macro', formatNumber(metrics.f1), false, 'f1'], ['정밀도 / 재현율', `${formatNumber(metrics.precision)} / ${formatNumber(metrics.recall)}`, false, 'precision'], ['학습 / 테스트 행', `${data.train_count} / ${data.test_count}`, false, 'split']]);
+        document.querySelector('#ml-chart-title').textContent = '혼동 행렬';
+        document.querySelector('#ml-chart-code').innerHTML = `TEST SET · ${helpLabel(`TRAIN ACC ${formatNumber(metrics.train_accuracy)}`, 'train_accuracy', true)}`;
+        renderConfusionMatrix(data.classes, data.confusion_matrix);
+        renderImportance(data.feature_importance);
+      } else {
+        const projected = data.features.length > 1;
+        renderKpis([['군집 수', formatNumber(data.cluster_count), true, 'clusters'], ['실루엣 계수', formatNumber(metrics.silhouette), false, 'silhouette'], ['노이즈 행', formatNumber(data.noise_count), false, 'noise'], ['데이터 행', formatNumber(data.row_count), false, 'rows']]);
+        document.querySelector('#ml-chart-title').textContent = '군집 분포';
+        document.querySelector('#ml-chart-code').textContent = projected ? 'PCA 2D PROJECTION · STANDARDIZED' : 'STANDARDIZED · 1D';
+        drawScatter(data.projection.map((point) => ({ x: point.x, y: point.y, color: clusterColor(point.cluster) })), { xLabel: projected ? 'PC1' : data.features[0], yLabel: projected ? 'PC2' : '', title: '군집 산점도' });
+        legend.innerHTML = data.profiles.map((profile) => `<span class="legend-item"><span class="swatch" style="background:${clusterColor(profile.cluster)}"></span>${clusterName(profile.cluster)} · ${profile.size}</span>`).join('');
+        renderClusterProfile(data.profiles);
+      }
+    }
+
+   
+    async function trainModel(file) {
+      const task = currentTask();
+      const features = selectedFeatures();
+      if (task !== 'clustering' && !targetPicker.value) throw new Error('종속 변수를 선택해 주세요.');
+      if (!features.length) throw new Error('독립 변수를 1개 이상 선택해 주세요.');
+      const body = new FormData();
+      body.append('file', file);
+      const query = new URLSearchParams({ task, algorithm: algorithmPicker.value });
+      for (const feature of features) query.append('features', feature);
+      if (task === 'clustering') {
+        query.set('n_clusters', document.querySelector('#cluster-input').value || '3');
+      } else {
+        query.set('target', targetPicker.value);
+        query.set('test_size', document.querySelector('#test-size-input').value || '0.2');
+      }
+      if (sheetPicker.value) query.set('sheet_name', sheetPicker.value);
+      const response = await fetch(`/ml?${query.toString()}`, { method: 'POST', body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '모델을 학습하지 못했습니다.');
+      renderMlResult(data);
+    }
+
+   
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return;
+      errorMessage.style.display = 'none';
+      button.disabled = true;
+      button.textContent = '학습 중...';
+      try {
+        await trainModel(file);
+      } catch (error) {
+        showError(error.message || '서버에 연결할 수 없습니다.');
+      } finally {
+        button.disabled = false;
+        button.textContent = '모델 학습';
+      }
+    });
+  </script>
+</body>
+</html>
+
