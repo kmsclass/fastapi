@@ -274,51 +274,70 @@ def _clustering(pipeline: Pipeline, features: pd.DataFrame, n_clusters: int) -> 
     }
 
 
-
+'''
+  1. 입력검증
+  2. 전처리 
+  3. 모델 생성
+  4. 학습,평가
+  5. 결과값 : JSON데이터 리턴 
+'''
 def run_model(
-    dataframe: pd.DataFrame,
-    task: str,
-    algorithm: str,
-    features: list[str],
-    target: str | None,
-    test_size: float,
-    n_clusters: int,
+    dataframe: pd.DataFrame,  # 업로드 파일
+    task: str,                # 회귀(regression),분류(classification),군집(clustering) 선택
+    algorithm: str,           # 알고리즘의 종류. ALGORITHMS[task]로 조회한 딕셔너리의 키값
+    features: list[str],      # 독립변수값들. features 쿼리값이 여러개를 list로 저장
+    target: str | None,       # 종속변수. 회귀,분류은 필수, 군집 사용안함
+    test_size: float,         # 테스트 데이터의 비율. (0.1 ~ 0.5). 군집에서는 필요 없음
+    n_clusters: int,          # 군집 수(2 ~ 20). 회귀,분류 사용안함
 ) -> dict[str, Any]:
-    
+    #=====  1. 입력값 검증 ==========
     if task not in ALGORITHMS:
         raise HTTPException(status_code=400, detail="분석 유형은 regression, classification, clustering 중 하나여야 합니다.")
+    
     if algorithm not in ALGORITHMS[task]:
         raise HTTPException(status_code=400, detail="선택한 분석 유형에서 지원하지 않는 알고리즘입니다.")
-   
+
+   #list 값을 dict 데이터로 변경함. {"weight":None, "origin" : None}
     features = list(dict.fromkeys(features))
-    if not features:
+    if not features:  #선택된 독립변수가 없음
         raise HTTPException(status_code=400, detail="독립 변수를 1개 이상 선택해 주세요.")
     
+    # 군집 선택한 경우 종속변수가 존재
     if task == "clustering" and target:
         raise HTTPException(status_code=400, detail="군집 분석에서는 종속 변수를 지정할 수 없습니다.")
+    # 회귀,분류인 경우 종속변수가 필수
     if task != "clustering":
         if not target:
             raise HTTPException(status_code=400, detail="회귀·분류 분석에는 종속 변수를 선택해야 합니다.")
-        
+        # 독립변수에 종속변수가 포함되는 경우
         if target in features:
             raise HTTPException(status_code=400, detail="종속 변수는 독립 변수에 포함될 수 없습니다.")
-    if not 0.1 <= test_size <= 0.5:
+        
+    if not 0.1 <= test_size <= 0.5:  # test_size의 값의 범위는 0.1 ~ 0.5 사이만 가능
         raise HTTPException(status_code=400, detail="테스트 비율은 0.1 이상 0.5 이하여야 합니다.")
+    #군집의 클러스터 갯수는 2 ~ 20사이만 가능
     if not 2 <= n_clusters <= 20:
         raise HTTPException(status_code=400, detail="군집 개수는 2 이상 20 이하여야 합니다.")
 
+#============ 2. 데이터 전처리 하기 : 독립변수 검증 =============================
+    # dataframe중 독립변수 컬럼만 feature_frame객체에 저장
+    # features의 데이터가 dataframe에 없는 경우 예외 발생함
     feature_frame = dataframe[_resolve_columns(dataframe, features)].copy()
-    
     feature_frame.columns = features
+
     for name in feature_frame.columns:
-        series = feature_frame[name]
-        if not pd.api.types.is_numeric_dtype(series):
+        series = feature_frame[name]  #시리즈 데이터
+        if not pd.api.types.is_numeric_dtype(series):  #범주형
             feature_frame[name] = series.astype(str).where(series.notna(), np.nan).astype(object)
-    
+
+    #값이 없는 컬럼
     empty = [name for name in feature_frame.columns if feature_frame[name].notna().sum() == 0]
     if empty:
         raise HTTPException(status_code=400, detail=f"값이 모두 비어 있는 독립 변수입니다: {', '.join(empty)}")
+    #============  3. 데이터 전처리 + 모델 선택 
     pipeline = Pipeline(
+        #prep : 전처리된 Dataframe 데이터
+        #model : 모델 선택 
         [("prep", _build_preprocessor(feature_frame)), ("model", _build_estimator(task, algorithm, n_clusters))]
     )
     result: dict[str, Any] = {
