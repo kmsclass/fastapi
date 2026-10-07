@@ -67,7 +67,8 @@ def chat(req : ChatRequest) :
     reply = llm.generate(req.messages,req.max_new_tokens, req.temperature)
     elapsed = round(time.time() - start , 2)  #응답데이터가 도착까지의 시간(초)
     return ChatResponse(reply=reply, model=settings.model_id,elapsed = elapsed)
-
+#
+# SSE 텍스트를 조금씩 보내는  StreamResponse를 반환함
 @app.post("/api/chat/stream", tags=["chat"])
 def chat_stream(req: ChatRequest):
     _ensure_ready()
@@ -81,12 +82,13 @@ def chat_stream(req: ChatRequest):
             yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed})}\n\n"
         except Exception as e: 
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
+    #응답을 한번에 만들지 않고, 값이 나올때 마다 계속 전송하는 응답
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type="text/event-stream",  #SSE표준방식. 
         headers={
-            "Cache-Control": "no-cache", 
-            "X-Accel-Buffering": "no", 
+            "Cache-Control": "no-cache", #응답을 캐쉬에 저장안함.
+            "X-Accel-Buffering": "no",   #응답을 모으지 말고, 바로 전송
         },
     )
 

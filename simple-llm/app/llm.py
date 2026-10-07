@@ -116,12 +116,14 @@ class QwenLLM :
     ) -> Iterator[str] :
         kwargs = self._generation_kwargs(messages,max_new_tokens,temperature)
         # skip_prompt=True : 프롬프트 부분은 제외하고 새로 생성된 텍스트만 전달
+        #TextIteratorStreamer : 생성된 토큰을 문자열로 변경하여 큐에 저장하는 도구
         streamer = TextIteratorStreamer(
             self.tokenizer, skip_prompt=True, skip_special_tokens=True
         )
         # 클라이언트가 연결을 끊으면 stop_event를 설정 → 생성 중단
-        stop_event = threading.Event()
+        stop_event = threading.Event() #스레드가 실행되는 시점을 서로 통신
         kwargs["streamer"] = streamer
+        # 토큰 생성시 조건을 검사해서 True인 경우 멈춤
         kwargs["stopping_criteria"] = StoppingCriteriaList([_StopOnEvent(stop_event)])
 
         # model.generate()는 끝날 때까지 블로킹되므로 별도 스레드에서 실행하고
@@ -135,11 +137,11 @@ class QwenLLM :
         try :
             for piece in streamer :
                 if piece :
-                    yield piece
+                    yield piece  #LLM의 응답메세지
         finally :
             # 정상 종료 / 연결 끊김(GeneratorExit) 모두 생성 스레드를 멈춤
-            stop_event.set()
-            thread.join()
+            stop_event.set() #True로 설정
+            thread.join() #스레드 종료
 
 # stop_event가 설정되면 True를 반환하여 generate()를 중단시킴
 class _StopOnEvent(StoppingCriteria) :
