@@ -1,0 +1,239 @@
+/*
+ * 채팅 화면 레이아웃 스타일
+ *
+ * .app 을 세로 flex 로 만들어  [헤더(고정)] [대화목록(남은 공간, 스크롤)] [입력창(고정)]  구조로 배치합니다.
+ */
+
+/* ───────── 전체 틀 ───────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ───────── 헤더 ───────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0; /* 긴 모델 이름이 넘칠 때 말줄임(...) 되도록 */
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 상태 표시 점 */
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot-ok { background: #22c55e; }
+.dot-loading { background: #eab308; animation: blink 1s infinite; }
+.dot-offline { background: #ef4444; }
+
+.btn-ghost {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.btn-ghost:hover:not(:disabled) { background: var(--bg); }
+.btn-ghost:disabled { opacity: 0.4; cursor: default; }
+
+/* ───────── 대화 목록 ───────── */
+.messages {
+  flex: 1; /* 헤더/입력창을 제외한 남은 높이를 모두 차지 */
+  overflow-y: auto; /* 내용이 넘치면 이 영역만 스크롤 */
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.messages.empty {
+  justify-content: center;
+}
+
+.welcome {
+  text-align: center;
+}
+.welcome h2 { margin: 0 0 4px; }
+.welcome p { margin: 0 0 20px; color: var(--muted); }
+
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.suggestion {
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.suggestion:hover { border-color: var(--primary); }
+
+/* 말풍선 한 줄: 사용자는 오른쪽, 챗봇은 왼쪽 정렬 */
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.row-user { justify-content: flex-end; }
+.row-bot { justify-content: flex-start; }
+
+.avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.bubble {
+  max-width: min(80%, 640px);
+  padding: 10px 14px;
+  border-radius: 16px;
+  overflow-wrap: anywhere; /* 긴 URL/코드도 줄바꿈 */
+}
+
+.bubble-user {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-bottom-right-radius: 4px;
+}
+
+.bubble-bot {
+  background: var(--bot-bubble);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.bubble-error {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-color: transparent;
+}
+
+.content {
+  margin: 0;
+  white-space: pre-wrap; /* 모델이 보낸 줄바꿈(\n)을 그대로 표시 */
+}
+
+.meta {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* "입력 중" 점 3개 애니메이션 */
+.typing {
+  display: inline-flex;
+  gap: 4px;
+  padding: 6px 0;
+}
+.typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: bounce 1.2s infinite;
+}
+.typing i:nth-child(2) { animation-delay: 0.15s; }
+.typing i:nth-child(3) { animation-delay: 0.3s; }
+
+/* ───────── 입력창 ───────── */
+.input-bar {
+  padding: 10px 16px 14px;
+  background: var(--bg);
+}
+
+.input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.input-box:focus-within { border-color: var(--primary); }
+
+.input-box textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 6px 0;
+  max-height: 200px;
+}
+
+.btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.35; cursor: default; }
+.btn-stop { background: var(--text); color: var(--surface); font-size: 0.8rem; }
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ───────── 애니메이션 ───────── */
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes blink {
+  50% { opacity: 0.3; }
+}

@@ -79,19 +79,19 @@ def _load_dataframe (contents : bytes, extension : str, sheet_name:str | None = 
                 raise HTTPException(status_code=400, detail="CSV 형식이 올바르지 않습니다.") from error
         raise HTTPException(status_code=400, detail="CSV 인코딩을 읽을 수 없습니다. UTF-8 또는 CP949 파일을 사용해 주세요.") 
     # excel 파일인 경우
-    try :
-        workbook = pd.ExcelFile(BytesIO(contents)) # excel파일 읽기
-        sheet_names = workbook.sheet_names  #sheet이름들
-        selected_sheet = sheet_name or sheet_names[0]  #sheet이름이 없는 경우 첫번째 sheet
-        if selected_sheet not in sheet_names :
-            raise HTTPException(status_code=400, 
-                                detail=f"시트를 찾을 수 없습니다:{selected_sheet}") 
-        #엑셀파일에서 선택한  sheet를 읽어 DataFrame객체로 리턴
-        return pd.read_excel(workbook,sheet_name=selected_sheet),sheet_names, selected_sheet
-    except HTTPException :
+    try:
+        workbook = pd.ExcelFile(BytesIO(contents))
+        sheet_names = workbook.sheet_names
+        selected_sheet = sheet_name or sheet_names[0]
+        if selected_sheet not in sheet_names:
+            raise HTTPException(status_code=400, detail=f"시트를 찾을 수 없습니다: {selected_sheet}")
+        return pd.read_excel(workbook, sheet_name=selected_sheet), sheet_names, selected_sheet
+    except HTTPException:
+        # 위에서 만든 사용자용 오류는 그대로 전달한다.
         raise
-    except Exception as error :
-        raise HTTPException(status_code=400,detail="Excel 파일을 읽을 수 없습니다.") from error
+    except Exception as error:
+        # 손상된 파일, 암호 걸린 파일 등 라이브러리 내부 오류는 하나의 메시지로 감싼다.
+        raise HTTPException(status_code=400, detail="Excel 파일을 읽을 수 없습니다.") from error        
 #=====================================================================================
 @app.get("/",response_class=HTMLResponse)
 async def home(request : Request) -> HTMLResponse :

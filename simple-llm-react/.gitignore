@@ -1,0 +1,19 @@
+# 의존성 패키지 (npm install 로 다시 받을 수 있음)
+node_modules
+
+# 빌드 결과물
+dist
+
+# 로그
+*.log
+npm-debug.log*
+
+# 환경변수 (개인 설정)
+.env
+.env.local
+
+# 에디터/OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

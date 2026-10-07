@@ -1,0 +1,65 @@
+/*
+ * 전체 공통 스타일
+ *
+ * CSS 변수(--이름)로 색상을 한 곳에 정의해 두고, 컴포넌트 스타일(App.css)에서 var(--이름)으로 사용합니다.
+ * 운영체제가 다크 모드이면 @media (prefers-color-scheme: dark) 블록의 색상이 자동 적용됩니다.
+ */
+:root {
+  /* 라이트 모드 색상 */
+  --bg: #f7f7fb;          /* 페이지 배경 */
+  --surface: #ffffff;     /* 헤더/입력창 배경 */
+  --text: #1f2330;        /* 기본 글자 */
+  --muted: #6b7080;       /* 보조 글자 */
+  --border: #e3e4ec;      /* 테두리 */
+  --primary: #6d5dfc;     /* 강조색(사용자 말풍선, 버튼) */
+  --primary-text: #ffffff;
+  --bot-bubble: #ffffff;  /* 챗봇 말풍선 */
+  --error-bg: #fdecec;
+  --error-text: #b42318;
+
+  font-family: 'Pretendard', 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 다크 모드 색상 */
+    --bg: #14151b;
+    --surface: #1c1d25;
+    --text: #e6e7ee;
+    --muted: #9a9db0;
+    --border: #2d2f3b;
+    --primary: #8577ff;
+    --primary-text: #ffffff;
+    --bot-bubble: #22242e;
+    --error-bg: #3a1d1d;
+    --error-text: #ffb4ab;
+  }
+}
+
+/* 모든 요소의 크기 계산에 padding/border 를 포함 → 레이아웃 계산이 쉬워짐 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+}
+
+button,
+textarea {
+  font: inherit; /* 입력창/버튼도 페이지와 같은 글꼴 사용 */
+  color: inherit;
+}
